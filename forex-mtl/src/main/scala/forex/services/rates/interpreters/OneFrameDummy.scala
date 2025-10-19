@@ -12,4 +12,5 @@ class OneFrameDummy[F[_]: Applicative] extends Algebra[F] {
   override def get(pair: Rate.Pair): F[Error Either Rate] =
     Rate(pair, Price(BigDecimal(100)), Timestamp.now).asRight[Error].pure[F]
 
+  override def getBatch(pairs: List[Rate.Pair]): F[Error Either List[Rate]] = ???
 }

@@ -7,7 +7,7 @@ import org.http4s.dsl.impl.QueryParamDecoderMatcher
 object QueryParams {
 
   private[http] implicit val currencyQueryParam: QueryParamDecoder[Currency] =
-    QueryParamDecoder[String].map(Currency.fromString)
+    QueryParamDecoder[String].map(Currency(_))
 
   object FromQueryParam extends QueryParamDecoderMatcher[Currency]("from")
   object ToQueryParam extends QueryParamDecoderMatcher[Currency]("to")

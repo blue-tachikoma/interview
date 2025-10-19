@@ -1,6 +1,7 @@
 package forex.programs.rates
 
 import forex.domain.Rate
+
 import errors._
 
 trait Algebra[F[_]] {

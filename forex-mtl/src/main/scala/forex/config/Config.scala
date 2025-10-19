@@ -1,10 +1,8 @@
 package forex.config
 
-import cats.effect.Sync
-
+import cats.effect.{ Resource, Sync }
 import pureconfig.ConfigSource
 import pureconfig.generic.auto._
-import cats.effect.Resource
 
 object Config {
 

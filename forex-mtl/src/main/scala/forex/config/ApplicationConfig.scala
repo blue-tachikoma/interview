@@ -1,8 +1,9 @@
 package forex.config
 
-import scala.concurrent.duration.FiniteDuration
-import forex.services.rates.interpreters.OneFrameLive
 import forex.programs.rates.Program
+import forex.services.rates.interpreters.OneFrameLive
+
+import scala.concurrent.duration.FiniteDuration
 
 case class ApplicationConfig(
     http: HttpConfig,

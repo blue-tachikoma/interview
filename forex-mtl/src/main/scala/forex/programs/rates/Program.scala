@@ -1,26 +1,25 @@
 package forex.programs.rates
 
-import cats.data.EitherT
-import cats.syntax.all._
-import errors._
-import forex.domain._
-import forex.services.RatesService
-import cats.effect.Resource
-import dev.profunktor.redis4cats.{ Redis, RedisCommands }
-import dev.profunktor.redis4cats.connection.RedisClient
-import cats.effect.Concurrent
-import cats.effect.ContextShift
-import dev.profunktor.redis4cats.log4cats._
-import org.typelevel.log4cats.Logger
-import org.typelevel.log4cats.LoggerFactory
-import dev.profunktor.redis4cats.data.RedisCodec
 import cats.Monad
+import cats.data.EitherT
+import cats.effect.{ Concurrent, ContextShift, Resource }
+import cats.syntax.all._
+import dev.profunktor.redis4cats.connection.RedisClient
+import dev.profunktor.redis4cats.data.RedisCodec
+import dev.profunktor.redis4cats.log4cats._
+import dev.profunktor.redis4cats.{ Redis, RedisCommands }
+import forex.domain._
+import forex.programs.rates.Program.Config
+import forex.services.RatesService
 import io.circe.parser._
 import io.circe.syntax._
-import scala.concurrent.duration._
+import org.typelevel.log4cats.{ Logger, LoggerFactory }
 import pureconfig._
 import pureconfig.generic.semiauto._
-import forex.programs.rates.Program.Config
+
+import scala.concurrent.duration._
+
+import errors._
 
 class Program[F[_]: Monad](
     ratesService: RatesService[F],

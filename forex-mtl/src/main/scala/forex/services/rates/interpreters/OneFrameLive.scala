@@ -1,20 +1,20 @@
 package forex.services.rates.interpreters
 
+import cats.effect.{ ConcurrentEffect, Resource, Sync }
 import cats.syntax.all._
-import forex.services.rates.Algebra
 import forex.domain.Rate
+import forex.services.rates.Algebra
 import forex.services.rates.errors._
-import cats.effect.{ ConcurrentEffect, Resource }
-import scala.concurrent.ExecutionContext
+import forex.services.rates.interpreters.OneFrameLive.Config
 import org.http4s.blaze.client.BlazeClientBuilder
+import org.http4s.circe.CirceEntityCodec._
 import org.http4s.client.Client
 import org.http4s.{ Headers, Method, Request, Uri }
-import org.http4s.circe.CirceEntityCodec._
-import cats.effect.Sync
 import pureconfig._
-import pureconfig.generic.semiauto._
 import pureconfig.error.CannotConvert
-import forex.services.rates.interpreters.OneFrameLive.Config
+import pureconfig.generic.semiauto._
+
+import scala.concurrent.ExecutionContext
 
 class OneFrameLive[F[_]: Sync](
     client: Client[F],

@@ -1,9 +1,11 @@
 package forex.services.rates
 
 import cats.Applicative
-import interpreters._
 import cats.effect.{ ConcurrentEffect, Resource }
+
 import scala.concurrent.ExecutionContext
+
+import interpreters._
 
 object Interpreters {
   def dummy[F[_]: Applicative]: Algebra[F] = new OneFrameDummy[F]()

@@ -1,18 +1,18 @@
 package forex.http
 
+import cats.effect.{ Concurrent, ConcurrentEffect, Resource, Timer }
 import cats.syntax.all._
 import forex.config.HttpConfig
-import cats.effect.{ ConcurrentEffect, Resource, Timer }
-import org.typelevel.log4cats.{ Logger, LoggerFactory }
-import org.http4s._
-import org.http4s.implicits._
-import org.http4s.server.middleware.{ AutoSlash, RequestLogger, ResponseLogger, Timeout }
-import scala.concurrent.ExecutionContext
-import org.http4s.blaze.server.BlazeServerBuilder
-import org.http4s.server.Server
-import forex.programs.RatesProgram
 import forex.http.rates.RatesHttpRoutes
-import cats.effect.Concurrent
+import forex.programs.RatesProgram
+import org.http4s._
+import org.http4s.blaze.server.BlazeServerBuilder
+import org.http4s.implicits._
+import org.http4s.server.Server
+import org.http4s.server.middleware.{ AutoSlash, RequestLogger, ResponseLogger, Timeout }
+import org.typelevel.log4cats.{ Logger, LoggerFactory }
+
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.FiniteDuration
 
 object HttpModule {

@@ -1,17 +1,16 @@
 package forex
 
-import cats.effect.{ ConcurrentEffect, Resource, Timer }
-import forex.services._
-import forex.programs._
-import org.typelevel.log4cats.slf4j._
+import cats.effect.{ ConcurrentEffect, ContextShift, Resource, Timer }
+import dev.profunktor.redis4cats.connection.{ RedisClient, RedisURI }
+import dev.profunktor.redis4cats.log4cats._
 import forex.config._
 import forex.http.HttpModule
-import scala.concurrent.ExecutionContext
-import dev.profunktor.redis4cats.connection.RedisClient
+import forex.programs._
+import forex.services._
+import org.typelevel.log4cats.slf4j._
 import org.typelevel.log4cats.{ Logger, LoggerFactory }
-import dev.profunktor.redis4cats.connection.RedisURI
-import cats.effect.ContextShift
-import dev.profunktor.redis4cats.log4cats._
+
+import scala.concurrent.ExecutionContext
 
 object Module {
   def wire[F[_]: ConcurrentEffect: ContextShift: Timer](executionContext: ExecutionContext): Resource[F, Unit] = {

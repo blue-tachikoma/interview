@@ -5,7 +5,7 @@ import forex.domain._
 object Converters {
   import Protocol._
 
-  private[rates] implicit class GetApiResponseOps(val rate: Rate) extends AnyVal {
+  private[rates] implicit class GetApiResponseOps(private val rate: Rate) extends AnyVal {
     def asGetApiResponse: GetApiResponse =
       GetApiResponse(
         from = rate.pair.from,

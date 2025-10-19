@@ -76,3 +76,8 @@ libraryDependencies ++= Seq(
 )
 
 Compile / run / fork := true
+
+enablePlugins(JavaAppPackaging, DockerPlugin)
+
+dockerBaseImage := "eclipse-temurin:17-jre"
+dockerExposedPorts := Seq(8080)

@@ -1,0 +1,45 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - forex-network
+
+  oneframe:
+    image: paidyinc/one-frame:latest
+    container_name: oneframe
+    ports:
+      - "8080:8080"
+    networks:
+      - forex-network
+    ulimits:
+      nofile: 65536
+
+  forex-app:
+    image: forex:1.0.1
+    container_name: forex-app
+    ports:
+      - "8081:8081"
+    environment:
+      - HTTP_HOST=0.0.0.0
+      - HTTP_PORT=8081
+      - REDIS_URI=redis://redis:6379
+      - ONEFRAME_BASE_URI=oneframe:8080
+    depends_on:
+      - redis
+      - oneframe
+    networks:
+      - forex-network
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+
+networks:
+  forex-network:
+    driver: bridge

@@ -19,7 +19,7 @@ object Module {
     for {
       config <- Config.load[F]("app")
       redisClient <- makeRedisClient[F](config.redis)
-      ratesService <- RatesServices.live[F](executionContext, config.rates.oneFrame)
+      ratesService <- RatesServices.live[F](executionContext, config.rates.oneframe)
       ratesProgram <- RatesProgram[F](ratesService, redisClient, config.rates.program)
       _ <- HttpModule.serve[F](config.http, executionContext, ratesProgram)
     } yield ()

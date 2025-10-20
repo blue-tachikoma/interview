@@ -21,5 +21,5 @@ case class RedisConfig(uri: String)
 
 case class RatesConfig(
     program: Program.Config,
-    oneFrame: OneFrameLive.Config
+    oneframe: OneFrameLive.Config
 )

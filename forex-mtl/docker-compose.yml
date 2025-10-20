@@ -29,7 +29,7 @@ services:
       - HTTP_HOST=0.0.0.0
       - HTTP_PORT=8081
       - REDIS_URI=redis://redis:6379
-      - ONEFRAME_BASE_URI=oneframe:8080
+      - ONEFRAME_BASE_URI=http://oneframe:8080
     depends_on:
       - redis
       - oneframe

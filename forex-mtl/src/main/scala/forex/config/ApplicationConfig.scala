@@ -1,6 +1,7 @@
 package forex.config
 
 import forex.programs.rates.Program
+import forex.services.cache.interpreters.RedisCache
 import forex.services.rates.interpreters.OneFrameLive
 
 import scala.concurrent.duration.FiniteDuration
@@ -8,7 +9,8 @@ import scala.concurrent.duration.FiniteDuration
 case class ApplicationConfig(
     http: HttpConfig,
     redis: RedisConfig,
-    rates: RatesConfig
+    rates: RatesConfig,
+    cache: RedisCache.Config
 )
 
 case class HttpConfig(

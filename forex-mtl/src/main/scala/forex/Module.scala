@@ -1,5 +1,6 @@
 package forex
 
+import cats.Parallel
 import cats.effect.{ ConcurrentEffect, ContextShift, Resource, Timer }
 import dev.profunktor.redis4cats.connection.{ RedisClient, RedisURI }
 import dev.profunktor.redis4cats.log4cats._
@@ -13,14 +14,17 @@ import org.typelevel.log4cats.{ Logger, LoggerFactory }
 import scala.concurrent.ExecutionContext
 
 object Module {
-  def wire[F[_]: ConcurrentEffect: ContextShift: Timer](executionContext: ExecutionContext): Resource[F, Unit] = {
+  def wire[F[_]: ConcurrentEffect: ContextShift: Timer: Parallel](
+      executionContext: ExecutionContext
+  ): Resource[F, Unit] = {
     implicit val logger: Logger[F] = LoggerFactory[F].getLoggerFromClass(classOf[Module.type])
 
     for {
       config <- Config.load[F]("app")
       redisClient <- makeRedisClient[F](config.redis)
       ratesService <- RatesServices.live[F](executionContext, config.rates.oneframe)
-      ratesProgram <- RatesProgram[F](ratesService, redisClient, config.rates.program)
+      cacheService <- CacheServices.redis[F](config.cache, redisClient)
+      ratesProgram <- RatesProgram[F](ratesService, cacheService, config.rates.program)
       _ <- HttpModule.serve[F](config.http, executionContext, ratesProgram)
     } yield ()
   }

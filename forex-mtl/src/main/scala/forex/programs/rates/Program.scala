@@ -1,16 +1,14 @@
 package forex.programs.rates
 
-import cats.Monad
+import cats.Parallel
 import cats.data.EitherT
-import cats.effect.{ Concurrent, ContextShift, Resource }
+import cats.effect.concurrent.Supervisor
+import cats.effect.{ Concurrent, Resource, Sync, Timer }
 import cats.syntax.all._
-import dev.profunktor.redis4cats.connection.RedisClient
-import dev.profunktor.redis4cats.data.RedisCodec
-import dev.profunktor.redis4cats.log4cats._
-import dev.profunktor.redis4cats.{ Redis, RedisCommands }
 import forex.domain._
 import forex.programs.rates.Program.Config
-import forex.services.RatesService
+import forex.services.{ CacheService, RatesService }
+import fs2.Stream
 import io.circe.parser._
 import io.circe.syntax._
 import org.typelevel.log4cats.{ Logger, LoggerFactory }
@@ -21,46 +19,89 @@ import scala.concurrent.duration._
 
 import errors._
 
-class Program[F[_]: Monad](
+class Program[F[_]: Sync: Timer: Logger](
     ratesService: RatesService[F],
-    redisCmd: RedisCommands[F, String, String],
-    config: Config
+    cacheService: CacheService[F],
+    config: Config,
+    allPossiblePairs: List[Rate.Pair]
 ) extends Algebra[F] {
 
-  override def get(request: Protocol.GetRatesRequest): F[Error Either Rate] = {
-    val key = request.from.value + request.to.value
-    redisCmd.get(key).flatMap {
-      case Some(value) =>
-        decode[Rate](value)
-          .leftMap[Error](e => Error.RateLookupFailed(e.getMessage))
-          .pure[F]
-      case None =>
-        EitherT(ratesService.get(Rate.Pair(request.from, request.to)))
-          .leftMap(toProgramError)
-          .semiflatTap(rate => redisCmd.setEx(key, rate.asJson.noSpaces, config.cacheTtl))
-          .value
-    }
-  }
+  override def get(request: Protocol.GetRatesRequest): F[Error Either Rate] =
+    cacheService
+      .get(makeKey(request.from, request.to))
+      .map {
+        case Some(value) =>
+          decode[Rate](value)
+            .leftMap[Error](e => Error.RateLookupFailed(e.getMessage))
+        case None =>
+          Error.RateLookupFailed("Cache is empty").asLeft[Rate]
+      }
 
+  private def polling: Stream[F, Unit] =
+    Stream.eval(pollRates) >> Stream
+      .awakeEvery[F](config.ratesPollingTimeout)
+      .evalMap(_ => pollRates)
+
+  private def pollRates: F[Unit] =
+    for {
+      _ <- Logger[F].info("Trying to acquire lock")
+      isAcquired <- cacheService.tryAcquire
+      _ <- Logger[F].info(s"Lock acquiring result: $isAcquired")
+      _ <- Logger[F].info("Updating rates").whenA(isAcquired)
+      _ <- updateRates.whenA(isAcquired)
+      _ <- Logger[F].info("Rates updated").whenA(isAcquired)
+    } yield ()
+
+  private def updateRates: F[Unit] =
+    EitherT(ratesService.getBatch(allPossiblePairs))
+      .leftMap(toProgramError)
+      .semiflatMap(rates => cacheService.setAll(toKeyValue(rates)))
+      .value
+      .void
+
+  private def toKeyValue(rates: List[Rate]): Map[String, String] =
+    rates.map(rate => makeKey(rate.pair) -> rate.asJson.noSpaces).toMap
+
+  private def makeKey(pair: Rate.Pair): String =
+    makeKey(pair.from, pair.to)
+
+  private def makeKey(from: Currency, to: Currency): String =
+    s"${config.ratesCacheNamespace}:${from.value}${to.value}"
 }
 
 object Program {
   case class Config(
-      cacheTtl: FiniteDuration
+      ratesCacheNamespace: String,
+      ratesPollingTimeout: FiniteDuration,
+      currencies: List[String]
   )
   object Config {
     implicit val ratesProgramConfigReader: ConfigReader[Config] = deriveReader
   }
 
-  def apply[F[_]: Concurrent: ContextShift: LoggerFactory](
+  def apply[F[_]: Concurrent: Parallel: Timer: LoggerFactory](
       ratesService: RatesService[F],
-      redisClient: RedisClient,
+      cacheService: CacheService[F],
       config: Config
   ): Resource[F, Algebra[F]] = {
     implicit val logger: Logger[F] = LoggerFactory[F].getLoggerFromClass(classOf[Program[F]])
-    Redis[F]
-      .fromClient(redisClient, RedisCodec.Utf8)
-      .map(redisCmd => new Program[F](ratesService, redisCmd, config))
+
+    val service = new Program[F](
+      ratesService = ratesService,
+      cacheService = cacheService,
+      config = config,
+      allPossiblePairs = makePairs(config.currencies)
+    )
+    for {
+      supervisor <- Supervisor[F]
+      _ <- Resource.eval(supervisor.supervise(service.polling.compile.drain))
+    } yield service
   }
+
+  private def makePairs(currencies: List[String]): List[Rate.Pair] =
+    for {
+      left <- currencies
+      right <- currencies if left != right
+    } yield Rate.Pair(Currency(left), Currency(right))
 
 }

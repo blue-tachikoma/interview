@@ -8,8 +8,8 @@ import interpreters._
 
 object Interpreters {
   def redis[F[_]: Concurrent: ContextShift: LoggerFactory](
-      config: RedisCache.Config,
+      config: RatesRedisCache.Config,
       client: RedisClient
   ): Resource[F, Algebra[F]] =
-    RedisCache(config, client)
+    RatesRedisCache(config, client)
 }

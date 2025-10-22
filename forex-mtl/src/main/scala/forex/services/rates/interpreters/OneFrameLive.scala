@@ -4,7 +4,7 @@ import cats.Applicative
 import cats.effect.{ ConcurrentEffect, Resource, Sync }
 import cats.syntax.all._
 import forex.domain.{ Currency, Price, Rate, Timestamp }
-import forex.http.client.{ LogicalError, TechnicalError }
+import forex.http.client.{ FatalError, RetryableError }
 import forex.services.rates.Algebra
 import forex.services.rates.errors._
 import forex.services.rates.interpreters.OneFrameLive.Config
@@ -59,11 +59,11 @@ class OneFrameLive[F[_]: Sync: Logger](
   private def toHttpClientError(response: Response[F]): F[Throwable] =
     response.status.responseClass match {
       case ClientError =>
-        parseErrorResponse(response).map(body => LogicalError(response.status.code, body))
+        parseErrorResponse(response).map(body => FatalError(response.status.code, body))
       case ServerError =>
-        parseErrorResponse(response).map(body => TechnicalError(response.status.code, body))
+        parseErrorResponse(response).map(body => RetryableError(response.status.code, body))
       case _ =>
-        Applicative[F].pure(TechnicalError(response.status.code, "Unexpected response"))
+        Applicative[F].pure(FatalError(response.status.code, "Unexpected response"))
     }
 
   private def parseErrorResponse(response: Response[F]): F[String] =
@@ -76,14 +76,14 @@ class OneFrameLive[F[_]: Sync: Logger](
 
   private def handleError(error: Throwable): F[Error.OneFrameLookupFailed] =
     error match {
-      case e @ TechnicalError(status, message) =>
+      case e @ RetryableError(status, message) =>
         Logger[F]
-          .error(e)(s"Received technical error from OneFrame: $status - $message")
-          .as(Error.OneFrameLookupFailed("Technical error occured"))
-      case e @ LogicalError(status, message) =>
+          .error(e)(s"Received retryable error from OneFrame: $status - $message")
+          .as(Error.OneFrameLookupFailed("Retryable error occured"))
+      case e @ FatalError(status, message) =>
         Logger[F]
-          .error(e)(s"Received logical error from OneFrame: $status - $message")
-          .as(Error.OneFrameLookupFailed("Logical error occured"))
+          .error(e)(s"Received fatal error from OneFrame: $status - $message")
+          .as(Error.OneFrameLookupFailed("Fatal error occured"))
       case other =>
         Logger[F]
           .error(other)(s"Received unexpected error from OneFrame: ${other.getMessage()}")

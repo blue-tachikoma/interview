@@ -1,4 +1,4 @@
-package forex.services.cache.interpreters
+package forex.services.rates.cache.interpreters
 
 import cats.MonadThrow
 import cats.effect.{ Concurrent, ContextShift, Resource, Sync }
@@ -8,7 +8,7 @@ import dev.profunktor.redis4cats.data.RedisCodec
 import dev.profunktor.redis4cats.effects.{ SetArg, SetArgs }
 import dev.profunktor.redis4cats.log4cats._
 import dev.profunktor.redis4cats.{ Redis, RedisCommands }
-import forex.services.cache.{ Algebra, FatalError, RetryableError }
+import forex.services.rates.cache.{ Algebra, FatalError, RetryableError }
 import io.lettuce.core.protocol.RedisProtocolException
 import io.lettuce.core.{
   RedisCommandExecutionException,

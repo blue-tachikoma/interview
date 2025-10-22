@@ -1,4 +1,4 @@
-package forex.services.cache
+package forex.services.rates.cache
 
 import cats.effect.{ Concurrent, ContextShift, Resource }
 import dev.profunktor.redis4cats.connection.RedisClient

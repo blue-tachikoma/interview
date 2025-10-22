@@ -1,4 +1,4 @@
-package forex.services.rates
+package forex.services.rates.oneframe
 
 import cats.Applicative
 import cats.effect.{ ConcurrentEffect, Resource }

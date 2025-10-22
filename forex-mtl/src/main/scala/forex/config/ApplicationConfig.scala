@@ -1,8 +1,8 @@
 package forex.config
 
 import forex.programs.rates.Program
-import forex.services.cache.interpreters.RatesRedisCache
-import forex.services.rates.interpreters.OneFrameLive
+import forex.services.rates.cache.interpreters.RatesRedisCache
+import forex.services.rates.oneframe.interpreters.OneFrameLive
 
 import scala.concurrent.duration.FiniteDuration
 

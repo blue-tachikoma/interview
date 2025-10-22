@@ -1,4 +1,4 @@
-package forex.services.cache
+package forex.services.rates.cache
 
 trait Algebra[F[_]] {
   def setAll(data: Map[String, String]): F[Unit]

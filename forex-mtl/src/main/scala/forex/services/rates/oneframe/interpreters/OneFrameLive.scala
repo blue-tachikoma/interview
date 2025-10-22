@@ -1,20 +1,19 @@
-package forex.services.rates.interpreters
+package forex.services.rates.oneframe.interpreters
 
 import cats.Applicative
 import cats.effect.{ ConcurrentEffect, Resource, Sync }
 import cats.syntax.all._
 import forex.domain.{ Currency, Price, Rate, Timestamp }
 import forex.http.client.{ FatalError, RetryableError }
-import forex.services.rates.Algebra
-import forex.services.rates.errors._
-import forex.services.rates.interpreters.OneFrameLive.Config
+import forex.services.rates.oneframe.Algebra
+import forex.services.rates.oneframe.errors._
 import io.circe.Decoder
 import io.circe.generic.semiauto._
 import org.http4s.Status.{ ClientError, ServerError }
 import org.http4s._
 import org.http4s.blaze.client.BlazeClientBuilder
 import org.http4s.circe.CirceEntityCodec._
-import org.http4s.client.{ middleware, Client }
+import org.http4s.client.{Client, middleware}
 import org.typelevel.log4cats.{ Logger, LoggerFactory }
 import pureconfig._
 import pureconfig.error.CannotConvert
@@ -25,7 +24,7 @@ import scala.concurrent.ExecutionContext
 
 class OneFrameLive[F[_]: Sync: Logger](
     client: Client[F],
-    config: Config
+    config: OneFrameLive.Config
 ) extends Algebra[F] {
   import OneFrameLive._
 

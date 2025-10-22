@@ -1,11 +1,11 @@
-package forex.services.rates.interpreters
+package forex.services.rates.oneframe.interpreters
 
 import cats.Applicative
 import cats.syntax.applicative._
 import cats.syntax.either._
 import forex.domain.{ Price, Rate, Timestamp }
-import forex.services.rates.Algebra
-import forex.services.rates.errors._
+import forex.services.rates.oneframe.Algebra
+import forex.services.rates.oneframe.errors._
 
 class OneFrameDummy[F[_]: Applicative] extends Algebra[F] {
 

@@ -5,7 +5,7 @@ import cats.effect.{ ConcurrentEffect, ContextShift, Resource, Timer }
 import dev.profunktor.redis4cats.connection.{ RedisClient, RedisURI }
 import dev.profunktor.redis4cats.log4cats._
 import forex.config._
-import forex.http.HttpModule
+import forex.http.server.HttpServerModule
 import forex.programs._
 import forex.services._
 import org.typelevel.log4cats.slf4j._
@@ -25,7 +25,7 @@ object Module {
       ratesService <- RatesServices.live[F](executionContext, config.rates.oneframe)
       cacheService <- CacheServices.redis[F](config.cache, redisClient)
       ratesProgram <- RatesProgram[F](ratesService, cacheService, config.rates.program)
-      _ <- HttpModule.serve[F](config.http, executionContext, ratesProgram)
+      _ <- HttpServerModule.makeAndServe[F](config.http, executionContext, ratesProgram)
     } yield ()
   }
 

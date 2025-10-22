@@ -1,4 +1,4 @@
-package forex.http.rates
+package forex.http.server.rates
 
 import forex.domain._
 

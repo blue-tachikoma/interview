@@ -1,9 +1,9 @@
-package forex.http
+package forex.http.server
 
 import cats.effect.{ Concurrent, ConcurrentEffect, Resource, Timer }
 import cats.syntax.all._
 import forex.config.HttpConfig
-import forex.http.rates.RatesHttpRoutes
+import forex.http.server.rates.RatesHttpRoutes
 import forex.programs.RatesProgram
 import org.http4s._
 import org.http4s.blaze.server.BlazeServerBuilder
@@ -15,16 +15,16 @@ import org.typelevel.log4cats.{ Logger, LoggerFactory }
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.FiniteDuration
 
-object HttpModule {
+object HttpServerModule {
   type PartialMiddleware[F[_]] = HttpRoutes[F] => HttpRoutes[F]
   type TotalMiddleware[F[_]]   = HttpApp[F] => HttpApp[F]
 
-  def serve[F[_]: ConcurrentEffect: Timer: LoggerFactory](
+  def makeAndServe[F[_]: ConcurrentEffect: Timer: LoggerFactory](
       config: HttpConfig,
       executionContect: ExecutionContext,
       ratesProgram: RatesProgram[F]
   ): Resource[F, Server] = {
-    implicit val logger: Logger[F] = LoggerFactory[F].getLoggerFromClass(classOf[HttpModule.type])
+    implicit val logger: Logger[F] = LoggerFactory[F].getLoggerFromClass(classOf[HttpServerModule.type])
 
     val ratesHttpRoutes: HttpRoutes[F] = new RatesHttpRoutes[F](ratesProgram).routes
     val httpApp                        = makeHttpApp(ratesHttpRoutes, config.timeout)

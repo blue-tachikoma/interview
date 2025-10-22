@@ -1,17 +1,20 @@
 package forex.services.rates.interpreters
 
+import cats.Applicative
 import cats.effect.{ ConcurrentEffect, Resource, Sync }
 import cats.syntax.all._
 import forex.domain.{ Currency, Price, Rate, Timestamp }
+import forex.http.client.{ LogicalError, TechnicalError }
 import forex.services.rates.Algebra
 import forex.services.rates.errors._
 import forex.services.rates.interpreters.OneFrameLive.Config
 import io.circe.Decoder
 import io.circe.generic.semiauto._
+import org.http4s.Status.{ ClientError, ServerError }
+import org.http4s._
 import org.http4s.blaze.client.BlazeClientBuilder
 import org.http4s.circe.CirceEntityCodec._
 import org.http4s.client.{ middleware, Client }
-import org.http4s.{ Headers, InvalidMessageBodyFailure, Method, Request, Uri }
 import org.typelevel.log4cats.{ Logger, LoggerFactory }
 import pureconfig._
 import pureconfig.error.CannotConvert
@@ -20,47 +23,72 @@ import pureconfig.generic.semiauto._
 import java.time.OffsetDateTime
 import scala.concurrent.ExecutionContext
 
-class OneFrameLive[F[_]: Sync](
+class OneFrameLive[F[_]: Sync: Logger](
     client: Client[F],
     config: Config
 ) extends Algebra[F] {
   import OneFrameLive._
 
-  override def get(pair: Rate.Pair): F[Error Either Rate] = {
+  override def get(pair: Rate.Pair): F[Either[Error, Rate]] = {
     val param = pair.from.value + pair.to.value
     val uri   = config.baseUri.withPath(config.ratesPath).withQueryParam("pair", param)
 
     client
-      .expect[List[RatesResponse]](makeRatesRequest(uri))
+      .expectOr[List[RatesResponse]](makeRatesRequest(uri))(toHttpClientError)
       .map { response =>
         response.headOption
           .map(_.toRate)
           .toRight[Error](Error.OneFrameLookupFailed("Empty rate"))
       }
-      .handleError {
-        case e: InvalidMessageBodyFailure => Error.OneFrameLookupFailed(e.message).asLeft[Rate]
-        case other                        => Error.OneFrameLookupFailed(other.getMessage()).asLeft[Rate]
-      }
+      .handleErrorWith(handleError(_).map(_.asLeft[Rate]))
   }
 
-  override def getBatch(pairs: List[Rate.Pair]): F[Error Either List[Rate]] = {
+  override def getBatch(pairs: List[Rate.Pair]): F[Either[Error, List[Rate]]] = {
     val params = pairs.map(p => p.from.value + p.to.value)
     val uri    = config.baseUri.withPath(config.ratesPath).withQueryParam("pair", params)
 
     client
-      .expect[List[RatesResponse]](makeRatesRequest(uri))
-      .map { response =>
-        response.map(_.toRate).asRight[Error]
-      }
-      .handleError {
-        case e: InvalidMessageBodyFailure => Error.OneFrameLookupFailed(e.message).asLeft[List[Rate]]
-        case other                        => Error.OneFrameLookupFailed(other.getMessage()).asLeft[List[Rate]]
-      }
+      .expectOr[List[RatesResponse]](makeRatesRequest(uri))(toHttpClientError)
+      .map(response => response.map(_.toRate).asRight[Error])
+      .handleErrorWith(handleError(_).map(_.asLeft[List[Rate]]))
   }
 
   private def makeRatesRequest(uri: Uri): Request[F] =
     Request[F](Method.GET, uri, headers = Headers("token" -> config.token))
 
+  private def toHttpClientError(response: Response[F]): F[Throwable] =
+    response.status.responseClass match {
+      case ClientError =>
+        parseErrorResponse(response).map(body => LogicalError(response.status.code, body))
+      case ServerError =>
+        parseErrorResponse(response).map(body => TechnicalError(response.status.code, body))
+      case _ =>
+        Applicative[F].pure(TechnicalError(response.status.code, "Unexpected response"))
+    }
+
+  private def parseErrorResponse(response: Response[F]): F[String] =
+    response
+      .attemptAs[String]
+      .foldF(
+        df => Logger[F].error(df)(s"Failed parsing error response body: ${df.getMessage()}").as("Empty body"),
+        body => body.pure[F]
+      )
+
+  private def handleError(error: Throwable): F[Error.OneFrameLookupFailed] =
+    error match {
+      case e @ TechnicalError(status, message) =>
+        Logger[F]
+          .error(e)(s"Received technical error from OneFrame: $status - $message")
+          .as(Error.OneFrameLookupFailed("Technical error occured"))
+      case e @ LogicalError(status, message) =>
+        Logger[F]
+          .error(e)(s"Received logical error from OneFrame: $status - $message")
+          .as(Error.OneFrameLookupFailed("Logical error occured"))
+      case other =>
+        Logger[F]
+          .error(other)(s"Received unexpected error from OneFrame: ${other.getMessage()}")
+          .as(Error.OneFrameLookupFailed("Unexpected error occured"))
+    }
 }
 
 object OneFrameLive {

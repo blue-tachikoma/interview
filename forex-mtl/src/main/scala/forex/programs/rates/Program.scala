@@ -1,13 +1,13 @@
 package forex.programs.rates
 
 import cats.Parallel
-import cats.data.EitherT
 import cats.effect.concurrent.Supervisor
 import cats.effect.{ Concurrent, Resource, Sync, Timer }
 import cats.syntax.all._
 import forex.domain._
 import forex.programs.rates.Program.Config
 import forex.programs.rates.errors.Error.ValidationError
+import forex.services.rates.oneframe.errors.Error.OneFrameLookupFailed
 import forex.services.{ CacheService, RatesService }
 import fs2.Stream
 import io.circe.parser._
@@ -56,17 +56,26 @@ class Program[F[_]: Sync: Timer: Logger](
       _ <- Logger[F].info("Trying to acquire lock")
       isAcquired <- cacheService.tryAcquire
       _ <- Logger[F].info(s"Lock acquiring result: $isAcquired")
-      _ <- Logger[F].info("Updating rates").whenA(isAcquired)
       _ <- updateRates.whenA(isAcquired)
-      _ <- Logger[F].info("Rates updated").whenA(isAcquired)
+      _ <- Logger[F].info("Skipping: Lock is already acquired").unlessA(isAcquired)
     } yield ()
 
   private def updateRates: F[Unit] =
-    EitherT(ratesService.getBatch(allPairsList))
-      .leftMap(toProgramError)
-      .semiflatMap(rates => cacheService.setAll(toKeyValue(rates)))
-      .value
-      .void
+    (for {
+      _ <- Logger[F].info("Updating rates")
+      rates <- getRates
+      _ <- cacheService.setAll(toKeyValue(rates))
+      _ <- Logger[F].info("Rates updated")
+    } yield ()).handleErrorWith { ex =>
+      Logger[F].error(ex)(s"Failed to update rates")
+    }
+
+  private def getRates: F[List[Rate]] =
+    ratesService.getBatch(allPairsList).flatMap {
+      case Right(rates)                    => rates.pure[F]
+      case Left(OneFrameLookupFailed(msg)) =>
+        (new RuntimeException(msg)).raiseError[F, List[Rate]]
+    }
 
   private def toKeyValue(rates: List[Rate]): Map[String, String] =
     rates.map(rate => makeKey(rate.pair) -> rate.asJson.noSpaces).toMap

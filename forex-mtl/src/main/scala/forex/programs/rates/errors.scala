@@ -9,6 +9,7 @@ object errors {
   }
   object Error {
     final case class RateLookupFailed(message: String) extends Error
+    final case class ValidationError(message: String) extends Error
   }
 
   def toProgramError(error: RatesServiceError): Error = error match {

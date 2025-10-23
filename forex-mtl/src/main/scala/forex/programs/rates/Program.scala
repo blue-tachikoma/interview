@@ -7,6 +7,7 @@ import cats.effect.{ Concurrent, Resource, Sync, Timer }
 import cats.syntax.all._
 import forex.domain._
 import forex.programs.rates.Program.Config
+import forex.programs.rates.errors.Error.ValidationError
 import forex.services.{ CacheService, RatesService }
 import fs2.Stream
 import io.circe.parser._
@@ -23,19 +24,27 @@ class Program[F[_]: Sync: Timer: Logger](
     ratesService: RatesService[F],
     cacheService: CacheService[F],
     config: Config,
-    allPossiblePairs: List[Rate.Pair]
+    allPossiblePairs: Set[Rate.Pair]
 ) extends Algebra[F] {
+  private val allPairsList: List[Rate.Pair] = allPossiblePairs.toList
 
-  override def get(request: Protocol.GetRatesRequest): F[Error Either Rate] =
-    cacheService
-      .get(makeKey(request.from, request.to))
-      .map {
-        case Some(value) =>
-          decode[Rate](value)
-            .leftMap[Error](e => Error.RateLookupFailed(e.getMessage))
-        case None =>
-          Error.RateLookupFailed("Cache is empty").asLeft[Rate]
-      }
+  override def get(request: Protocol.GetRatesRequest): F[Error Either Rate] = {
+    val pair = Rate.Pair(request.from, request.to)
+    if (!allPossiblePairs.contains(pair)) {
+      val error = ValidationError(s"Pair ${pair.from.value}-${pair.to.value} is not valid")
+      Logger[F].error(s"Validation failed").as(error.asLeft[Rate])
+    } else {
+      cacheService
+        .get(makeKey(request.from, request.to))
+        .map {
+          case Some(value) =>
+            decode[Rate](value)
+              .leftMap[Error](e => Error.RateLookupFailed(e.getMessage))
+          case None =>
+            Error.RateLookupFailed("Cache is empty").asLeft[Rate]
+        }
+    }
+  }
 
   private def polling: Stream[F, Unit] =
     Stream.eval(pollRates) >> Stream
@@ -53,7 +62,7 @@ class Program[F[_]: Sync: Timer: Logger](
     } yield ()
 
   private def updateRates: F[Unit] =
-    EitherT(ratesService.getBatch(allPossiblePairs))
+    EitherT(ratesService.getBatch(allPairsList))
       .leftMap(toProgramError)
       .semiflatMap(rates => cacheService.setAll(toKeyValue(rates)))
       .value
@@ -73,7 +82,7 @@ object Program {
   case class Config(
       ratesCacheNamespace: String,
       ratesPollingTimeout: FiniteDuration,
-      currencies: List[String]
+      currencies: Set[String]
   )
   object Config {
     implicit val ratesProgramConfigReader: ConfigReader[Config] = deriveReader
@@ -98,7 +107,7 @@ object Program {
     } yield service
   }
 
-  private def makePairs(currencies: List[String]): List[Rate.Pair] =
+  private def makePairs(currencies: Set[String]): Set[Rate.Pair] =
     for {
       left <- currencies
       right <- currencies if left != right

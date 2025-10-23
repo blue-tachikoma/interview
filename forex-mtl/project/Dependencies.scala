@@ -11,19 +11,21 @@ object Dependencies {
     val pureConfig = "0.17.4"
     val redis4cats = "0.14.0"
 
-    val kindProjector    = "0.13.4"
-    val betterMonadicFor = "0.3.1"
-    val logback          = "1.2.3"
-    val log4cats         = "1.7.0"
-    val scalaCheck       = "1.15.3"
-    val scalaTest        = "3.2.7"
-    val catsScalaCheck   = "0.3.2"
+    val kindProjector       = "0.13.4"
+    val betterMonadicFor    = "0.3.1"
+    val logback             = "1.2.3"
+    val log4cats            = "1.7.0"
+    val scalaCheck          = "1.15.3"
+    val scalaTest           = "3.2.7"
+    val catsEffectScalaTest = "0.5.4"
+    val catsScalaCheck      = "0.3.2"
   }
 
   object Libraries {
     def circe(artifact: String): ModuleID      = "io.circe"       %% artifact % Versions.circe
     def http4s(artifact: String): ModuleID     = "org.http4s"     %% artifact % Versions.http4s
     def redis4cats(artifact: String): ModuleID = "dev.profunktor" %% artifact % Versions.redis4cats
+    def log4cats(artifact: String): ModuleID   = "org.typelevel"  %% artifact % Versions.log4cats
 
     lazy val cats       = "org.typelevel" %% "cats-core"   % Versions.cats
     lazy val catsEffect = "org.typelevel" %% "cats-effect" % Versions.catsEffect
@@ -39,8 +41,9 @@ object Dependencies {
     lazy val circeParser       = circe("circe-parser")
     lazy val redis4catsEffects = redis4cats("redis4cats-effects")
     lazy val redis4catsLog     = redis4cats("redis4cats-log4cats")
-    lazy val pureConfig        = "com.github.pureconfig" %% "pureconfig"     % Versions.pureConfig
-    lazy val log4cats          = "org.typelevel"         %% "log4cats-slf4j" % Versions.log4cats
+    lazy val log4catsSlf4j     = log4cats("log4cats-slf4j")
+    lazy val log4catsNoop      = log4cats("log4cats-noop")
+    lazy val pureConfig        = "com.github.pureconfig" %% "pureconfig" % Versions.pureConfig
 
     // Compiler plugins
     lazy val kindProjector    = "org.typelevel" %% "kind-projector"     % Versions.kindProjector cross CrossVersion.full
@@ -50,9 +53,10 @@ object Dependencies {
     lazy val logback = "ch.qos.logback" % "logback-classic" % Versions.logback
 
     // Test
-    lazy val scalaTest      = "org.scalatest"     %% "scalatest"       % Versions.scalaTest
-    lazy val scalaCheck     = "org.scalacheck"    %% "scalacheck"      % Versions.scalaCheck
-    lazy val catsScalaCheck = "io.chrisdavenport" %% "cats-scalacheck" % Versions.catsScalaCheck
+    lazy val scalaTest           = "org.scalatest"     %% "scalatest"                     % Versions.scalaTest
+    lazy val catsEffectScalaTest = "com.codecommit"    %% "cats-effect-testing-scalatest" % Versions.catsEffectScalaTest
+    lazy val scalaCheck          = "org.scalacheck"    %% "scalacheck"                    % Versions.scalaCheck
+    lazy val catsScalaCheck      = "io.chrisdavenport" %% "cats-scalacheck"               % Versions.catsScalaCheck
   }
 
 }

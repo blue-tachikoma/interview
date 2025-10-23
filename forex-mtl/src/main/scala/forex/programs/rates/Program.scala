@@ -39,9 +39,11 @@ class Program[F[_]: Sync: Timer: Logger](
         .map {
           case Some(value) =>
             decode[Rate](value)
-              .leftMap[Error](e => Error.RateLookupFailed(e.getMessage))
+              .leftMap[Error](_ => Error.RateLookupFailed("Decoding failure"))
           case None =>
-            Error.RateLookupFailed("Cache is empty").asLeft[Rate]
+            Error
+              .RateLookupFailed(s"Rate for ${pair.from.value}-${pair.to.value} is missing")
+              .asLeft[Rate]
         }
     }
   }

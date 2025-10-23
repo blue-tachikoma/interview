@@ -69,10 +69,12 @@ libraryDependencies ++= Seq(
   Libraries.redis4catsLog,
   Libraries.pureConfig,
   Libraries.logback,
-  Libraries.log4cats,
-  Libraries.scalaTest      % Test,
-  Libraries.scalaCheck     % Test,
-  Libraries.catsScalaCheck % Test
+  Libraries.log4catsSlf4j,
+  Libraries.log4catsNoop,
+  Libraries.scalaTest           % Test,
+  Libraries.catsEffectScalaTest % Test,
+  Libraries.scalaCheck          % Test,
+  Libraries.catsScalaCheck      % Test
 )
 
 Compile / run / fork := true

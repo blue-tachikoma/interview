@@ -1,5 +1,6 @@
 package forex.domain
 
+import cats.Show
 import io.circe.Codec
 import io.circe.generic.extras.Configuration
 import io.circe.generic.extras.semiauto.deriveConfiguredCodec
@@ -21,6 +22,9 @@ object Rate {
   )
   object Pair {
     implicit val pairCodec: Codec.AsObject[Pair] = deriveCodec
+    implicit val pairShow: Show[Pair]            = Show.show { pair =>
+      s"${pair.from.value}-${pair.to.value}"
+    }
   }
 
 }

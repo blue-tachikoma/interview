@@ -4,7 +4,7 @@ import cats.effect.testing.scalatest.{ AsyncIOSpec, CatsResourceIO }
 import cats.effect.{ IO, Resource }
 import cats.syntax.all._
 import forex.domain.{ Currency, Price, Rate, Timestamp }
-import io.circe.syntax._
+import forex.services.rates.cache.FatalError
 import org.scalatest.funsuite.FixtureAsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 import org.typelevel.log4cats.noop.NoOpLogger
@@ -25,7 +25,7 @@ class ProgramSuite extends FixtureAsyncFunSuite with AsyncIOSpec with CatsResour
 
     }
     val currencies   = Set("USD", "EUR", "JPY", "RUB")
-    val config       = Program.Config("rates", 1.minute, currencies)
+    val config       = Program.Config(1.minute, currencies)
     val ratesCache   = new RatesCacheServiceMock[IO]
     val ratesService = new RatesServiceMock[IO]
 
@@ -35,22 +35,22 @@ class ProgramSuite extends FixtureAsyncFunSuite with AsyncIOSpec with CatsResour
 
   test("Should return correct rates from cache") { resource =>
     for {
-      _ <- resource.ratesCache.getMock.set { key =>
-             if (key == rateKey) IO.pure(rate.asJson.noSpaces.some)
+      _ <- resource.ratesCache.getMock.set { pair =>
+             if (pair == rate.pair) IO.pure(rate.some)
              else IO.pure(none)
            }
-      actual <- resource.program.get(Protocol.GetRatesRequest(rate.pair.from, rate.pair.to))
+      actual <- resource.program.get(getRequest)
     } yield assert(actual == rate.asRight[errors.Error])
   }
 
   test("Should fail when pair is not present in cache") { resource =>
     for {
       _ <- resource.ratesCache.getMock.set(_ => IO.pure(none))
-      actual <- resource.program.get(Protocol.GetRatesRequest(rate.pair.from, rate.pair.to))
+      actual <- resource.program.get(getRequest)
     } yield {
       val expected = errors.Error
         .RateLookupFailed(
-          s"Rate for ${rate.pair.from.value}-${rate.pair.to.value} is missing"
+          show"Rate for ${rate.pair} is missing"
         )
         .asLeft[Rate]
       assert(actual == expected)
@@ -73,13 +73,13 @@ class ProgramSuite extends FixtureAsyncFunSuite with AsyncIOSpec with CatsResour
     }
   }
 
-  test("Should fail on decoding failure") { resource =>
+  test("Should fail on any cache error") { resource =>
     for {
-      _ <- resource.ratesCache.getMock.set(_ => IO.pure("random string".some))
-      actual <- resource.program.get(Protocol.GetRatesRequest(rate.pair.from, rate.pair.to))
+      _ <- resource.ratesCache.getMock.set(_ => IO.raiseError(FatalError("Artificial error")))
+      actual <- resource.program.get(getRequest)
     } yield {
       val expected = errors.Error
-        .RateLookupFailed("Decoding failure")
+        .RateLookupFailed(show"Failed to get rate for ${rate.pair}")
         .asLeft[Rate]
       assert(actual == expected)
     }
@@ -98,5 +98,5 @@ object ProgramSuite {
     price = Price(BigDecimal(0.3450)),
     timestamp = Timestamp(OffsetDateTime.now())
   )
-  val rateKey = s"rates:${rate.pair.from.value}${rate.pair.to.value}"
+  val getRequest = Protocol.GetRatesRequest(rate.pair.from, rate.pair.to)
 }

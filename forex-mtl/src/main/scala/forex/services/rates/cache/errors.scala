@@ -1,5 +1,5 @@
 package forex.services.rates.cache
 
-abstract class RedisError(message: String) extends Throwable(message)
-case class RetryableError(message: String) extends RedisError(message)
-case class FatalError(message: String) extends RedisError(message)
+abstract class CacheError(message: String) extends Throwable(message)
+case class RetryableError(message: String) extends CacheError(message)
+case class FatalError(message: String) extends CacheError(message)

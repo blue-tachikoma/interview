@@ -10,8 +10,6 @@ import forex.programs.rates.errors.Error.ValidationError
 import forex.services.rates.oneframe.errors.Error.OneFrameLookupFailed
 import forex.services.{ CacheService, RatesService }
 import fs2.Stream
-import io.circe.parser._
-import io.circe.syntax._
 import org.typelevel.log4cats.{ Logger, LoggerFactory }
 import pureconfig._
 import pureconfig.generic.semiauto._
@@ -31,19 +29,21 @@ class Program[F[_]: Sync: Timer: Logger](
   override def get(request: Protocol.GetRatesRequest): F[Error Either Rate] = {
     val pair = Rate.Pair(request.from, request.to)
     if (!allPossiblePairs.contains(pair)) {
-      val error = ValidationError(s"Pair ${pair.from.value}-${pair.to.value} is not valid")
+      val error = ValidationError(show"Pair $pair is not valid")
       Logger[F].error(s"Validation failed").as(error.asLeft[Rate])
     } else {
       cacheService
-        .get(makeKey(request.from, request.to))
-        .map {
-          case Some(value) =>
-            decode[Rate](value)
-              .leftMap[Error](_ => Error.RateLookupFailed("Decoding failure"))
-          case None =>
-            Error
-              .RateLookupFailed(s"Rate for ${pair.from.value}-${pair.to.value} is missing")
-              .asLeft[Rate]
+        .get(pair)
+        .flatMap {
+          case Some(rate) => rate.asRight[Error].pure[F]
+          case None       =>
+            val error: Error = Error.RateLookupFailed(show"Rate for $pair is missing")
+            Logger[F].error(error.message).as(error.asLeft[Rate])
+        }
+        .handleErrorWith { err =>
+          Logger[F]
+            .error(err)(err.getMessage())
+            .as(Error.RateLookupFailed(show"Failed to get rate for $pair").asLeft[Rate])
         }
     }
   }
@@ -66,7 +66,7 @@ class Program[F[_]: Sync: Timer: Logger](
     (for {
       _ <- Logger[F].info("Updating rates")
       rates <- getRates
-      _ <- cacheService.setAll(toKeyValue(rates))
+      _ <- cacheService.setAll(rates)
       _ <- Logger[F].info("Rates updated")
     } yield ()).handleErrorWith { ex =>
       Logger[F].error(ex)(s"Failed to update rates")
@@ -78,20 +78,10 @@ class Program[F[_]: Sync: Timer: Logger](
       case Left(OneFrameLookupFailed(msg)) =>
         (new RuntimeException(msg)).raiseError[F, List[Rate]]
     }
-
-  private def toKeyValue(rates: List[Rate]): Map[String, String] =
-    rates.map(rate => makeKey(rate.pair) -> rate.asJson.noSpaces).toMap
-
-  private def makeKey(pair: Rate.Pair): String =
-    makeKey(pair.from, pair.to)
-
-  private def makeKey(from: Currency, to: Currency): String =
-    s"${config.ratesCacheNamespace}:${from.value}${to.value}"
 }
 
 object Program {
   case class Config(
-      ratesCacheNamespace: String,
       ratesPollingTimeout: FiniteDuration,
       currencies: Set[String]
   )

@@ -8,7 +8,10 @@ import dev.profunktor.redis4cats.data.RedisCodec
 import dev.profunktor.redis4cats.effects.{ SetArg, SetArgs }
 import dev.profunktor.redis4cats.log4cats._
 import dev.profunktor.redis4cats.{ Redis, RedisCommands }
+import forex.domain.Rate
 import forex.services.rates.cache.{ Algebra, FatalError, RetryableError }
+import io.circe.parser._
+import io.circe.syntax._
 import io.lettuce.core.protocol.RedisProtocolException
 import io.lettuce.core.{
   RedisCommandExecutionException,
@@ -29,16 +32,29 @@ class RatesRedisCache[F[_]: MonadThrow: Logger](
     redisCmd: RedisCommands[F, String, String]
 ) extends Algebra[F] {
 
-  def setAll(data: Map[String, String]): F[Unit] =
-    redisCmd.mSet(data).handleErrorWith(convertToRedisErrorAndRaise)
+  def setAll(rates: List[Rate]): F[Unit] =
+    redisCmd
+      .mSet(toKeyValue(rates))
+      .handleErrorWith(convertToRedisErrorAndRaise)
 
-  def get(key: String): F[Option[String]] =
-    redisCmd.get(key).handleErrorWith(convertToRedisErrorAndRaise)
+  private def toKeyValue(rates: List[Rate]): Map[String, String] =
+    rates.map(rate => makeKey(rate.pair) -> rate.asJson.noSpaces).toMap
+
+  def get(pair: Rate.Pair): F[Option[Rate]] =
+    redisCmd
+      .get(makeKey(pair))
+      .flatMap { rateOpt =>
+        rateOpt.traverse(rawRate => MonadThrow[F].fromEither(decode[Rate](rawRate)))
+      }
+      .handleErrorWith(convertToRedisErrorAndRaise)
+
+  private def makeKey(pair: Rate.Pair): String =
+    s"${config.ratesNamespace}:${pair.from.value}${pair.to.value}"
 
   def tryAcquire: F[Boolean] =
     redisCmd
       .set(
-        key = config.lockKey,
+        key = s"${config.ratesNamespace}:${config.lockKey}",
         value = instanceId.toString(),
         setArgs = SetArgs(SetArg.Existence.Nx, SetArg.Ttl.Px(config.lockTtl))
       )
@@ -61,6 +77,8 @@ class RatesRedisCache[F[_]: MonadThrow: Logger](
 
 object RatesRedisCache {
   case class Config(
+      ratesNamespace: String,
+      ratesLockNamespace: String,
       lockKey: String,
       lockTtl: FiniteDuration
   )

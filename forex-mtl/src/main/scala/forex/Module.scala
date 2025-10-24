@@ -23,7 +23,7 @@ object Module {
       config <- Config.load[F]("app")
       redisClient <- makeRedisClient[F](config.redis)
       ratesService <- RatesServices.live[F](executionContext, config.rates.oneframe)
-      cacheService <- CacheServices.redis[F](config.cache, redisClient)
+      cacheService <- CacheServices.redis[F](config.rates.cache, redisClient)
       ratesProgram <- RatesProgram[F](ratesService, cacheService, config.rates.program)
       _ <- HttpServerModule.makeAndServe[F](config.http, executionContext, ratesProgram)
     } yield ()

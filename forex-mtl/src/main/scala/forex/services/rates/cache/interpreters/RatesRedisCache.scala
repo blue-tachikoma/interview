@@ -49,12 +49,12 @@ class RatesRedisCache[F[_]: MonadThrow: Logger](
       .handleErrorWith(convertToRedisErrorAndRaise)
 
   private def makeKey(pair: Rate.Pair): String =
-    s"${config.ratesNamespace}:${pair.from.value}${pair.to.value}"
+    s"forex:${config.ratesNamespace}:${pair.from.value}${pair.to.value}"
 
   def tryAcquire: F[Boolean] =
     redisCmd
       .set(
-        key = s"${config.ratesNamespace}:${config.lockKey}",
+        key = s"forex:${config.ratesNamespace}:${config.lockKey}",
         value = instanceId.toString(),
         setArgs = SetArgs(SetArg.Existence.Nx, SetArg.Ttl.Px(config.lockTtl))
       )

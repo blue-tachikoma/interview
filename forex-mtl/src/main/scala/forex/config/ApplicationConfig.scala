@@ -10,7 +10,6 @@ case class ApplicationConfig(
     http: HttpConfig,
     redis: RedisConfig,
     rates: RatesConfig,
-    cache: RatesRedisCache.Config
 )
 
 case class HttpConfig(
@@ -23,5 +22,6 @@ case class RedisConfig(uri: String)
 
 case class RatesConfig(
     program: Program.Config,
-    oneframe: OneFrameLive.Config
+    oneframe: OneFrameLive.Config,
+    cache: RatesRedisCache.Config
 )

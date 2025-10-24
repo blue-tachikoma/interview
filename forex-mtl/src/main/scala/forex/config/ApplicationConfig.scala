@@ -9,7 +9,7 @@ import scala.concurrent.duration.FiniteDuration
 case class ApplicationConfig(
     http: HttpConfig,
     redis: RedisConfig,
-    rates: RatesConfig,
+    rates: RatesConfig
 )
 
 case class HttpConfig(

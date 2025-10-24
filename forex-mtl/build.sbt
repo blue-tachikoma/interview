@@ -3,6 +3,8 @@ import Dependencies._
 name := "forex"
 version := "1.0.1"
 
+addCommandAlias("lint", ";scalafixAll;scalafmtAll;scalafmtSbt")
+
 scalaVersion := "2.13.17"
 semanticdbEnabled := true
 semanticdbVersion := scalafixSemanticdb.revision

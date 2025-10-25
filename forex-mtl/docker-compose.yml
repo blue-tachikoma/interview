@@ -1,24 +1,4 @@
 services:
-  redis:
-    image: redis:7-alpine
-    container_name: redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes
-    networks:
-      - forex-network
-
-  oneframe:
-    image: paidyinc/one-frame:latest
-    container_name: oneframe
-    ports:
-      - "8080:8080"
-    networks:
-      - forex-network
-    ulimits:
-      nofile: 65536
 
   forex-app:
     image: forex:1.0.1
@@ -35,7 +15,58 @@ services:
       - oneframe
     networks:
       - forex-network
-    restart: unless-stopped
+    profiles:
+      - full
+      - load-test
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - forex-network
+    profiles:
+      - full
+      - dev
+      - load-test
+
+  oneframe:
+    image: paidyinc/one-frame:latest
+    container_name: oneframe
+    ports:
+      - "8080:8080"
+    networks:
+      - forex-network
+    ulimits:
+      nofile: 65536
+    profiles:
+      - full
+      - dev
+      - load-test
+
+  k6:
+    image: grafana/k6
+    container_name: k6
+    depends_on:
+      - forex-app
+    environment:
+      - K6_WEB_DASHBOARD=true
+      - K6_WEB_DASHBOARD_PERIOD=5s
+      - K6_SUMMARY_MODE=full
+    ports:
+      - "6565:6565"
+      - "5665:5665"
+    networks:
+      - forex-network
+    volumes:
+      - ./load-tests/rates.js:/tests/rates.js
+    entrypoint: ["k6", "run", "/tests/rates.js"]
+    profiles:
+      - load-test
 
 volumes:
   redis_data:

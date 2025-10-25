@@ -13,7 +13,7 @@ import org.http4s.Status.{ ClientError, ServerError }
 import org.http4s._
 import org.http4s.blaze.client.BlazeClientBuilder
 import org.http4s.circe.CirceEntityCodec._
-import org.http4s.client.{ middleware, Client }
+import org.http4s.client.{ Client, middleware }
 import org.typelevel.log4cats.{ Logger, LoggerFactory }
 import pureconfig._
 import pureconfig.error.CannotConvert

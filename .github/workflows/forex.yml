@@ -1,0 +1,70 @@
+name: Forex CI
+
+on:
+  push:
+    branches:
+      - feature/implement-api
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: forex-mtl
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-scala
+      - name: Check formatting
+        run: sbt "scalafixAll --check;scalafmtCheckAll;scalafmtSbtCheck;"
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: forex-mtl
+    needs: lint
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-scala
+      - name: Compile and package
+        run: sbt clean compile
+
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: forex-mtl
+    needs: build
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-scala
+      - name: Run unit tests
+        run: sbt test
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: forex-mtl
+    needs: build
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-scala
+      - name: Run integration tests
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: false
+          TESTCONTAINERS_CHECKS_DISABLE: false
+        run: sbt ItTest/test
+

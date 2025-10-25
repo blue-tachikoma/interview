@@ -1,0 +1,16 @@
+name: "Setup Scala Environment"
+description: "Sets up java and sbt"
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: 17
+        cache: sbt
+    - name: Setup sbt
+      uses: sbt/setup-sbt@v1
+      with:
+        sbt-version: 1.11.7
+

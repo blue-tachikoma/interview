@@ -39,8 +39,7 @@ object HttpServerModule {
       routes: HttpRoutes[F],
       timeout: FiniteDuration
   ): HttpApp[F] = {
-    val autoSlashMid = AutoSlash.httpRoutes[F](_)
-    // TODO: Add to config
+    val autoSlashMid     = AutoSlash.httpRoutes[F](_)
     val requestLoggerMid = RequestLogger
       .httpRoutes[F](
         logHeaders = true,

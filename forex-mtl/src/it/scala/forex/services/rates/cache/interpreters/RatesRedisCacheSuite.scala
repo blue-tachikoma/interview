@@ -8,6 +8,7 @@ import dev.profunktor.redis4cats.connection.{ RedisClient, RedisURI }
 import dev.profunktor.redis4cats.data.RedisCodec
 import dev.profunktor.redis4cats.log4cats._
 import dev.profunktor.redis4cats.{ Redis, RedisCommands }
+import forex.config.RetryConfig
 import forex.domain._
 import forex.services.rates.cache.Algebra
 import io.circe.parser._
@@ -45,25 +46,18 @@ class RatesRedisCacheSuite extends FixtureAsyncFunSuite with AsyncIOSpec with Ca
       }
     }(container => IO(container.stop()))
 
-    val config = RatesRedisCache.Config(
-      ratesNamespace = "rates",
-      ratesLockNamespace = "rates-lock",
-      lockKey = "lock",
-      lockTtl = 1.minute
-    )
-
     for {
       container <- redisContainer
       uri <- Resource.eval(RedisURI.make[IO](container.redisUri))
       client <- RedisClient[IO].fromUri(uri)
       redisCmd <- Redis[IO].fromClient(client, RedisCodec.Utf8)
       service <- RatesRedisCache[IO](config, client)
-    } yield new Environment(service, redisCmd, config)
+    } yield new Environment(service, redisCmd)
   }
 
   test("Should get existing rate by key") { env =>
     for {
-      _ <- env.redisCmd.set(makeKey(rate.pair, env.config.ratesNamespace), rate.asJson.noSpaces)
+      _ <- env.redisCmd.set(makeKey(rate.pair, config.ratesNamespace), rate.asJson.noSpaces)
       actual <- env.service.get(rate.pair)
     } yield assert(actual == rate.some)
   }
@@ -71,7 +65,7 @@ class RatesRedisCacheSuite extends FixtureAsyncFunSuite with AsyncIOSpec with Ca
   test("Should set a list of rates") { env =>
     for {
       _ <- env.service.setAll(rates)
-      storedRates <- rates.traverse(r => env.redisCmd.get(makeKey(r.pair, env.config.ratesNamespace)))
+      storedRates <- rates.traverse(r => env.redisCmd.get(makeKey(r.pair, config.ratesNamespace)))
       actual <- storedRates.flatten.traverse(s => IO.fromEither(decode[Rate](s)))
     } yield assert(actual == rates)
   }
@@ -79,14 +73,14 @@ class RatesRedisCacheSuite extends FixtureAsyncFunSuite with AsyncIOSpec with Ca
   test("Should acquire lock when it is possibe") { env =>
     for {
       isAcquired <- env.service.tryAcquire
-      actual <- env.redisCmd.get(s"forex:${env.config.ratesLockNamespace}:${env.config.lockKey}")
+      actual <- env.redisCmd.get(s"forex:${config.ratesLockNamespace}:${config.lockKey}")
     } yield assert(isAcquired && actual.isDefined)
   }
 
   test("Should not acquire lock when it was already acquired") { env =>
     for {
       isAcquired <- env.service.tryAcquire
-      actual <- env.redisCmd.get(s"forex:${env.config.ratesLockNamespace}:${env.config.lockKey}")
+      actual <- env.redisCmd.get(s"forex:${config.ratesLockNamespace}:${config.lockKey}")
     } yield assert(!isAcquired && actual.isDefined)
   }
 
@@ -97,8 +91,7 @@ class RatesRedisCacheSuite extends FixtureAsyncFunSuite with AsyncIOSpec with Ca
 object RatesRedisCacheSuite {
   class Environment(
       val service: Algebra[IO],
-      val redisCmd: RedisCommands[IO, String, String],
-      val config: RatesRedisCache.Config
+      val redisCmd: RedisCommands[IO, String, String]
   )
 
   case class RedisContainer(container: GenericContainer) extends AnyVal {
@@ -107,6 +100,18 @@ object RatesRedisCacheSuite {
     def redisUri: String = s"redis://$host:$port"
     def stop(): Unit     = container.stop()
   }
+
+  val disabledRetryConfig = RetryConfig(false, 0, 0.seconds)
+
+  val config = RatesRedisCache.Config(
+    ratesNamespace = "rates",
+    ratesLockNamespace = "rates-lock",
+    lockKey = "lock",
+    lockTtl = 1.minute,
+    setAllRetry = disabledRetryConfig,
+    getRetry = disabledRetryConfig,
+    tryAcquireRetry = disabledRetryConfig
+  )
 
   val rate = Rate(
     pair = Rate.Pair(Currency("USD"), Currency("JPY")),

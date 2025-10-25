@@ -1,8 +1,9 @@
 package forex.services.rates.oneframe.interpreters
 
 import cats.Applicative
-import cats.effect.{ ConcurrentEffect, Resource, Sync }
+import cats.effect.{ ConcurrentEffect, Resource, Sync, Timer }
 import cats.syntax.all._
+import forex.config.RetryConfig
 import forex.domain.{ Currency, Price, Rate, Timestamp }
 import forex.http.client.{ FatalError, RetryableError }
 import forex.services.rates.oneframe.Algebra
@@ -18,15 +19,24 @@ import org.typelevel.log4cats.{ Logger, LoggerFactory }
 import pureconfig._
 import pureconfig.error.CannotConvert
 import pureconfig.generic.semiauto._
+import retry.RetryPolicies._
+import retry.syntax.all._
+import retry.{ RetryDetails, RetryPolicy }
 
 import java.time.OffsetDateTime
 import scala.concurrent.ExecutionContext
 
-class OneFrameLive[F[_]: Sync: Logger](
+class OneFrameLive[F[_]: Sync: Timer: Logger](
     client: Client[F],
     config: OneFrameLive.Config
 ) extends Algebra[F] {
   import OneFrameLive._
+
+  val getRetryPolicy: RetryPolicy[F] =
+    limitRetries[F](config.getRetry.maxRetries) join fullJitter[F](config.getRetry.baseDelay)
+
+  val getBatchRetryPolicy: RetryPolicy[F] =
+    limitRetries[F](config.getBatchRetry.maxRetries) join fullJitter[F](config.getBatchRetry.baseDelay)
 
   override def get(pair: Rate.Pair): F[Either[Error, Rate]] = {
     val param = pair.from.value + pair.to.value
@@ -34,6 +44,11 @@ class OneFrameLive[F[_]: Sync: Logger](
 
     client
       .expectOr[List[RatesResponse]](makeRatesRequest(uri))(toHttpClientError)
+      .retryingOnSomeErrors(
+        isWorthRetrying = isWorthRetrying(_),
+        policy = getRetryPolicy,
+        onError = logOnRetry(_, _)
+      )
       .map { response =>
         response.headOption
           .map(_.toRate)
@@ -48,6 +63,11 @@ class OneFrameLive[F[_]: Sync: Logger](
 
     client
       .expectOr[List[RatesResponse]](makeRatesRequest(uri))(toHttpClientError)
+      .retryingOnSomeErrors(
+        isWorthRetrying = isWorthRetrying(_),
+        policy = getBatchRetryPolicy,
+        onError = logOnRetry(_, _)
+      )
       .map(response => response.map(_.toRate).asRight[Error])
       .handleErrorWith(handleError(_).map(_.asLeft[List[Rate]]))
   }
@@ -73,11 +93,22 @@ class OneFrameLive[F[_]: Sync: Logger](
         body => body.pure[F]
       )
 
+  private def isWorthRetrying(err: Throwable): Boolean =
+    err match {
+      case _: RetryableError => true
+      case _                 => false
+    }
+
+  private def logOnRetry(err: Throwable, details: RetryDetails): F[Unit] =
+    Logger[F].info(s"Retry attempt ${details.retriesSoFar + 1}: ${err.getMessage()}")
+
   private def handleError(error: Throwable): F[Error.OneFrameLookupFailed] =
     error match {
       case e @ RetryableError(status, message) =>
         Logger[F]
-          .error(e)(s"Received retryable error from OneFrame: $status - $message")
+          .error(e)(
+            s"Received retryable error from OneFrame, but all retry attempts were exhausted: $status - $message"
+          )
           .as(Error.OneFrameLookupFailed("Retryable error occured"))
       case e @ FatalError(status, message) =>
         Logger[F]
@@ -94,7 +125,9 @@ object OneFrameLive {
   case class Config(
       baseUri: Uri,
       token: String,
-      ratesPath: Uri.Path
+      ratesPath: Uri.Path,
+      getRetry: RetryConfig,
+      getBatchRetry: RetryConfig
   )
   object Config {
     implicit val uriReader: ConfigReader[Uri] = ConfigReader[String].emap { str =>
@@ -124,7 +157,7 @@ object OneFrameLive {
     implicit val ratesResponseDecoder: Decoder[RatesResponse] = deriveDecoder
   }
 
-  def make[F[_]: ConcurrentEffect: LoggerFactory](
+  def make[F[_]: ConcurrentEffect: Timer: LoggerFactory](
       executionContext: ExecutionContext,
       config: Config
   ): Resource[F, Algebra[F]] = {

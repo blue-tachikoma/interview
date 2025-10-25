@@ -10,6 +10,7 @@ object Dependencies {
     val circe      = "0.14.2"
     val pureConfig = "0.17.4"
     val redis4cats = "0.14.0"
+    val catsRetry  = "2.1.0"
 
     val kindProjector       = "0.13.4"
     val betterMonadicFor    = "0.3.1"
@@ -46,6 +47,7 @@ object Dependencies {
     lazy val log4catsSlf4j     = log4cats("log4cats-slf4j")
     lazy val log4catsNoop      = log4cats("log4cats-noop")
     lazy val pureConfig        = "com.github.pureconfig" %% "pureconfig" % Versions.pureConfig
+    lazy val catsRetry         = "com.github.cb372"      %% "cats-retry" % Versions.catsRetry
 
     // Compiler plugins
     lazy val kindProjector    = "org.typelevel" %% "kind-projector"     % Versions.kindProjector cross CrossVersion.full
@@ -77,6 +79,7 @@ object Dependencies {
       redis4catsEffects,
       redis4catsLog,
       pureConfig,
+      catsRetry,
       logback,
       log4catsSlf4j,
       log4catsNoop,

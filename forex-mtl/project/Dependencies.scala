@@ -19,13 +19,15 @@ object Dependencies {
     val scalaTest           = "3.2.7"
     val catsEffectScalaTest = "0.5.4"
     val catsScalaCheck      = "0.3.2"
+    val testcontainers      = "0.43.0"
   }
 
   object Libraries {
-    def circe(artifact: String): ModuleID      = "io.circe"       %% artifact % Versions.circe
-    def http4s(artifact: String): ModuleID     = "org.http4s"     %% artifact % Versions.http4s
-    def redis4cats(artifact: String): ModuleID = "dev.profunktor" %% artifact % Versions.redis4cats
-    def log4cats(artifact: String): ModuleID   = "org.typelevel"  %% artifact % Versions.log4cats
+    def circe(artifact: String): ModuleID          = "io.circe"       %% artifact % Versions.circe
+    def http4s(artifact: String): ModuleID         = "org.http4s"     %% artifact % Versions.http4s
+    def redis4cats(artifact: String): ModuleID     = "dev.profunktor" %% artifact % Versions.redis4cats
+    def log4cats(artifact: String): ModuleID       = "org.typelevel"  %% artifact % Versions.log4cats
+    def testcontainers(artifact: String): ModuleID = "com.dimafeng"   %% artifact % Versions.testcontainers
 
     lazy val cats       = "org.typelevel" %% "cats-core"   % Versions.cats
     lazy val catsEffect = "org.typelevel" %% "cats-effect" % Versions.catsEffect
@@ -57,6 +59,36 @@ object Dependencies {
     lazy val catsEffectScalaTest = "com.codecommit"    %% "cats-effect-testing-scalatest" % Versions.catsEffectScalaTest
     lazy val scalaCheck          = "org.scalacheck"    %% "scalacheck"                    % Versions.scalaCheck
     lazy val catsScalaCheck      = "io.chrisdavenport" %% "cats-scalacheck"               % Versions.catsScalaCheck
+    lazy val testcontainersScalatest = testcontainers("testcontainers-scala-scalatest")
+    lazy val testcontainersRedis     = testcontainers("testcontainers-scala-redis")
+
+    lazy val common: Seq[ModuleID] = Seq(
+      cats,
+      catsEffect,
+      fs2,
+      http4sDsl,
+      http4sServer,
+      http4sClient,
+      http4sCirce,
+      circeCore,
+      circeGeneric,
+      circeGenericExt,
+      circeParser,
+      redis4catsEffects,
+      redis4catsLog,
+      pureConfig,
+      logback,
+      log4catsSlf4j,
+      log4catsNoop,
+      compilerPlugin(kindProjector),
+      compilerPlugin(betterMonadicFor)
+    )
+
+    lazy val test: Seq[ModuleID] =
+      Seq(scalaTest % Test, catsEffectScalaTest % Test, scalaCheck % Test, catsScalaCheck % Test)
+
+    lazy val it: Seq[ModuleID] =
+      Seq(testcontainersScalatest % "it", testcontainersRedis % "it")
   }
 
 }

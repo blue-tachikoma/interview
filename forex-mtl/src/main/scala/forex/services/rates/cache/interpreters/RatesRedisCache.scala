@@ -54,7 +54,7 @@ class RatesRedisCache[F[_]: MonadThrow: Logger](
   def tryAcquire: F[Boolean] =
     redisCmd
       .set(
-        key = s"forex:${config.ratesNamespace}:${config.lockKey}",
+        key = s"forex:${config.ratesLockNamespace}:${config.lockKey}",
         value = instanceId.toString(),
         setArgs = SetArgs(SetArg.Existence.Nx, SetArg.Ttl.Px(config.lockTtl))
       )

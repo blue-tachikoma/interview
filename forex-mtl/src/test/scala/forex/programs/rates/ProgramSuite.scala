@@ -6,7 +6,6 @@ import cats.syntax.all._
 import forex.domain.{ Currency, Price, Rate, Timestamp }
 import forex.services.rates.cache.FatalError
 import org.scalatest.funsuite.FixtureAsyncFunSuite
-import org.scalatest.matchers.should.Matchers
 import org.typelevel.log4cats.noop.NoOpLogger
 import org.typelevel.log4cats.{ LoggerFactory, SelfAwareStructuredLogger }
 
@@ -15,7 +14,7 @@ import scala.concurrent.duration._
 
 import ProgramSuite.Environment
 
-class ProgramSuite extends FixtureAsyncFunSuite with AsyncIOSpec with CatsResourceIO[Environment] with Matchers {
+class ProgramSuite extends FixtureAsyncFunSuite with AsyncIOSpec with CatsResourceIO[Environment] {
   import ProgramSuite._
 
   def resource: Resource[IO, Environment] = {
